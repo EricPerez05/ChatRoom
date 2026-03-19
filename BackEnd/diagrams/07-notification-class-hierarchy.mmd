@@ -1,0 +1,19 @@
+classDiagram
+  class NotificationService {
+    -notificationRepository
+    +createQuestionAnsweredNotification(status)
+    +listByUser(userId)
+    +markRead(notificationId, userId)
+    -toDto(notification)
+  }
+
+  class NotificationRepository {
+    +create(notification)
+    +listByUser(userId)
+    +getById(notificationId)
+    +markRead(notificationId)
+  }
+
+  <<interface>> NotificationRepository
+
+  NotificationService --> NotificationRepository

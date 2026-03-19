@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hash, Users, Video, Phone, Send, Paperclip, Smile, Bold, Italic, Underline, AtSign, X } from 'lucide-react';
-import { Channel, Message } from '../data/mockData';
+import { Hash, Users, Send, Paperclip, Smile, Bold, Italic, Underline, AtSign, X } from 'lucide-react';
+import { Channel, CreateMessageInput, Message } from '../types/chat';
+import { useLocation } from 'react-router';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +14,7 @@ interface MessageAreaProps {
   messages: Message[];
   isParticipantsVisible: boolean;
   onToggleParticipants: () => void;
-  isInCall: boolean;
-  isVideoOn: boolean;
-  onToggleCall: () => void;
-  onToggleVideo: () => void;
+  onSendMessage: (channelId: string, payload: CreateMessageInput) => Promise<Message>;
 }
 
 interface LocalMessage extends Message {
@@ -28,22 +26,48 @@ export function MessageArea({
   messages,
   isParticipantsVisible,
   onToggleParticipants,
-  isInCall,
-  isVideoOn,
-  onToggleCall,
-  onToggleVideo,
+  onSendMessage,
 }: MessageAreaProps) {
   const [newMessage, setNewMessage] = useState('');
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>(messages);
   const [selectedAttachments, setSelectedAttachments] = useState<string[]>([]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const location = useLocation();
 
   useEffect(() => {
     setLocalMessages(messages);
     setNewMessage('');
     setSelectedAttachments([]);
   }, [messages, channel.id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const targetMessageId = params.get('message');
+
+    if (!targetMessageId) {
+      setHighlightedMessageId(null);
+      return;
+    }
+
+    const targetElement = document.getElementById(`message-${targetMessageId}`);
+    if (!targetElement) {
+      return;
+    }
+
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedMessageId(targetMessageId);
+
+    const timer = window.setTimeout(() => {
+      setHighlightedMessageId((current) =>
+        current === targetMessageId ? null : current,
+      );
+    }, 2500);
+
+    return () => window.clearTimeout(timer);
+  }, [location.search, channel.id, localMessages]);
 
   const formatTime = (date: Date) => {
     const hours = date.getHours();
@@ -135,25 +159,36 @@ export function MessageArea({
     event.target.value = '';
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     const trimmed = newMessage.trim();
-    if (!trimmed && selectedAttachments.length === 0) {
+    if ((!trimmed && selectedAttachments.length === 0) || isSending) {
       return;
     }
 
-    const outgoingMessage: LocalMessage = {
-      id: `local-${Date.now()}`,
+    setIsSending(true);
+
+    const payload: CreateMessageInput = {
       userId: 'u-you',
       userName: 'You',
       userAvatar: '👤',
       content: trimmed || 'Sent an attachment',
-      timestamp: new Date(),
-      attachments: selectedAttachments,
     };
 
-    setLocalMessages((current) => [...current, outgoingMessage]);
-    setNewMessage('');
-    setSelectedAttachments([]);
+    try {
+      const created = await onSendMessage(channel.id, payload);
+      const outgoingMessage: LocalMessage = {
+        ...created,
+        attachments: selectedAttachments,
+      };
+
+      setLocalMessages((current) => [...current, outgoingMessage]);
+      setNewMessage('');
+      setSelectedAttachments([]);
+    } catch {
+      return;
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const renderFormattedContent = (content: string) => {
@@ -198,30 +233,6 @@ export function MessageArea({
           <span className="font-semibold text-[#242424]">{channel.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onToggleVideo}
-            className={`p-1 rounded ${
-              isVideoOn
-                ? 'text-[#dc2626] bg-[#fef2f2]'
-                : 'text-[#616161] hover:text-[#242424] hover:bg-[#f5f5f5]'
-            }`}
-            aria-label="Toggle video"
-          >
-            <Video className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={onToggleCall}
-            className={`p-1 rounded ${
-              isInCall
-                ? 'text-[#059669] bg-[#ecfdf5]'
-                : 'text-[#616161] hover:text-[#242424] hover:bg-[#f5f5f5]'
-            }`}
-            aria-label="Toggle call"
-          >
-            <Phone className="w-5 h-5" />
-          </button>
           <button
             type="button"
             onClick={onToggleParticipants}
@@ -276,7 +287,14 @@ export function MessageArea({
                     <div className="h-px flex-1 bg-[#e0e0e0]"></div>
                   </div>
                 )}
-                <div className="flex gap-3 hover:bg-[#f5f5f5] px-4 py-2 -mx-4 rounded group">
+                <div
+                  id={`message-${message.id}`}
+                  className={`flex gap-3 px-4 py-2 -mx-4 rounded group transition-colors ${
+                    highlightedMessageId === message.id
+                      ? 'bg-[#e8e8f8] ring-1 ring-[#6264a7]/30'
+                      : 'hover:bg-[#f5f5f5]'
+                  }`}
+                >
                   {showAvatar ? (
                     <div className="w-8 h-8 rounded-full bg-[#6264a7] flex items-center justify-center text-white flex-shrink-0 text-xs font-semibold">
                       {getInitials(message.userName)}
@@ -355,7 +373,7 @@ export function MessageArea({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (newMessage.trim() || selectedAttachments.length > 0)) {
                   e.preventDefault();
-                  handleSendMessage();
+                  void handleSendMessage();
                 }
               }}
             />
@@ -436,9 +454,11 @@ export function MessageArea({
             </div>
             <button
               type="button"
-              onClick={handleSendMessage}
+              onClick={() => {
+                void handleSendMessage();
+              }}
               className="p-1.5 hover:bg-[#f5f5f5] rounded text-[#6264a7] hover:text-[#5b5fc7] disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!newMessage.trim() && selectedAttachments.length === 0}
+              disabled={isSending || (!newMessage.trim() && selectedAttachments.length === 0)}
             >
               <Send className="w-4 h-4" />
             </button>

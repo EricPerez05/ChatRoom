@@ -1,0 +1,26 @@
+classDiagram
+  class QuestionDetectionService {
+    +isLikelyQuestion(content)
+    +toDetectedQuestionDto(statuses, channelNameMap)
+  }
+
+  class QuestionStatusService {
+    -messageRepository
+    -questionStatusRepository
+    -questionDetectionService
+    -notificationService
+    +ingestMessage(input)
+    +getUnansweredStatuses(channelIds)
+    +markQuestionAsAnswered(questionId, answeredByUserId)
+    +seedFromExistingMessages(messages)
+    -createQuestionStatusIfAbsent(message)
+    -evaluateAnswerTransitions(newMessage)
+  }
+
+  class DiscussionService {
+    -discussionStateRepository
+    +setDiscussionStatus(discussionId, status)
+    +detect(messagesByChannel, channelNameMap, channelIds)
+  }
+
+  QuestionStatusService --> QuestionDetectionService

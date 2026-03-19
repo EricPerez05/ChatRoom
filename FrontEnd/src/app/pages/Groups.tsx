@@ -1,7 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { groups } from '../data/mockData';
+import { getGroups } from '../services/api';
+import { Server } from '../types/chat';
 
 export function Groups() {
+  const [groups, setGroups] = useState<Server[]>([]);
+
+  useEffect(() => {
+    const loadGroups = async () => {
+      const loadedGroups = await getGroups();
+      setGroups(loadedGroups);
+    };
+
+    void loadGroups();
+  }, []);
+
   return (
     <div className="h-screen flex items-start p-6 bg-white">
       <div className="max-w-3xl w-full">

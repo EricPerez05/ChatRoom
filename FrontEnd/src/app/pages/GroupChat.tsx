@@ -1,16 +1,82 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Navigate } from 'react-router';
 import { ServerSidebar } from '../components/ServerSidebar';
 import { ChannelList } from '../components/ChannelList';
 import { MessageArea } from '../components/MessageArea';
 import { MemberList } from '../components/MemberList';
-import { groups, groupMessages, members } from '../data/mockData';
+import { getChannelMessages, getGroups, getMembers, postChannelMessage } from '../services/api';
+import { CreateMessageInput, Member, Message, Server } from '../types/chat';
 
 export function GroupChat() {
   const { groupId, channelId } = useParams();
   const [isParticipantsVisible, setIsParticipantsVisible] = useState(true);
-  const [isInCall, setIsInCall] = useState(false);
-  const [isVideoOn, setIsVideoOn] = useState(false);
+  const [groups, setGroups] = useState<Server[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [channelMessages, setChannelMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const reloadMessages = async (targetChannelId: string) => {
+    const loadedMessages = await getChannelMessages(targetChannelId);
+    setChannelMessages(loadedMessages);
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [loadedGroups, loadedMembers] = await Promise.all([
+          getGroups(),
+          getMembers(),
+        ]);
+
+        setGroups(loadedGroups);
+        setMembers(loadedMembers);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!channelId) {
+        setChannelMessages([]);
+        return;
+      }
+
+      await reloadMessages(channelId);
+    };
+
+    void loadMessages();
+  }, [channelId]);
+
+  const handleSendMessage = async (targetChannelId: string, payload: CreateMessageInput) => {
+    const created = await postChannelMessage(targetChannelId, payload);
+    await reloadMessages(targetChannelId);
+    return created;
+  };
+
+  const handleChannelCreated = (targetGroupId: string, createdChannel: Server['channels'][number]) => {
+    setGroups((current) => current.map((entry) => {
+      if (entry.id !== targetGroupId) {
+        return entry;
+      }
+
+      if (entry.channels.some((channel) => channel.id === createdChannel.id)) {
+        return entry;
+      }
+
+      return {
+        ...entry,
+        channels: [...entry.channels, createdChannel],
+      };
+    }));
+  };
+
+  if (isLoading) {
+    return <div className="h-screen flex items-center justify-center text-sm text-[#616161]">Loading group chat...</div>;
+  }
 
   const group = groups.find((s) => s.id === groupId);
 
@@ -27,19 +93,10 @@ export function GroupChat() {
     }
   }
 
-  const channelMessages = groupMessages[channelId || ''] || [];
-
   return (
     <div className="h-screen flex bg-white">
       <ServerSidebar />
-      <ChannelList
-        server={group}
-        callStatus={{
-          isInCall,
-          isVideoOn,
-          currentUserName: 'You',
-        }}
-      />
+      <ChannelList server={group} onChannelCreated={handleChannelCreated} />
       {channel && (
         <>
           <MessageArea
@@ -49,26 +106,7 @@ export function GroupChat() {
             onToggleParticipants={() =>
               setIsParticipantsVisible((current) => !current)
             }
-            isInCall={isInCall}
-            isVideoOn={isVideoOn}
-            onToggleCall={() => {
-              setIsInCall((current) => {
-                const next = !current;
-                if (!next) {
-                  setIsVideoOn(false);
-                }
-                return next;
-              });
-            }}
-            onToggleVideo={() => {
-              setIsVideoOn((current) => {
-                const next = !current;
-                if (next) {
-                  setIsInCall(true);
-                }
-                return next;
-              });
-            }}
+            onSendMessage={handleSendMessage}
           />
           {isParticipantsVisible && <MemberList members={members} />}
         </>
