@@ -1,46 +1,63 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HelpCircle, AlertCircle, Loader2, CheckCircle, Clock, MessageCircle } from 'lucide-react';
-
-interface Question {
-  id: string;
-  content: string;
-  askedBy: string;
-  askedAt: Date;
-  channelName: string;
-  messageId: string;
-}
+import { useNavigate, useParams } from 'react-router';
+import { getQuestions, markQuestionAnswered } from '../services/api';
+import { DetectedQuestion } from '../types/chat';
 
 type ViewState = 'loading' | 'error' | 'empty' | 'success';
 
-export function UnansweredQuestions() {
-  // For demo purposes, toggle between different states
-  const [viewState, setViewState] = useState<ViewState>('success');
-  const [questions] = useState<Question[]>([
-    {
-      id: 'q1',
-      content: 'Does anyone know when the next team meeting is scheduled?',
-      askedBy: 'Alex',
-      askedAt: new Date(2026, 1, 18, 9, 30),
-      channelName: 'general',
-      messageId: 'm1',
-    },
-    {
-      id: 'q2',
-      content: 'Can someone help me with the deployment process?',
-      askedBy: 'Jordan',
-      askedAt: new Date(2026, 1, 18, 10, 15),
-      channelName: 'random',
-      messageId: 'm2',
-    },
-    {
-      id: 'q3',
-      content: 'What\'s the status of the Q1 roadmap?',
-      askedBy: 'Sam',
-      askedAt: new Date(2026, 1, 18, 11, 0),
-      channelName: 'general',
-      messageId: 'm3',
-    },
-  ]);
+interface UnansweredQuestionsProps {
+  channelIds?: string[];
+  onCountChange?: (count: number) => void;
+}
+
+export function UnansweredQuestions({ channelIds, onCountChange }: UnansweredQuestionsProps) {
+  const [viewState, setViewState] = useState<ViewState>('loading');
+  const [questions, setQuestions] = useState<DetectedQuestion[]>([]);
+  const { serverId, groupId } = useParams();
+  const navigate = useNavigate();
+
+  const loadQuestions = async () => {
+    setViewState('loading');
+
+    try {
+      const loadedQuestions = await getQuestions(channelIds);
+      setQuestions(loadedQuestions);
+      onCountChange?.(loadedQuestions.length);
+      setViewState(loadedQuestions.length === 0 ? 'empty' : 'success');
+    } catch {
+      setViewState('error');
+    }
+  };
+
+  useEffect(() => {
+    void loadQuestions();
+  }, [channelIds?.join('|')]);
+
+  const buildChannelPath = (channelId: string, messageId: string) => {
+    if (groupId) {
+      return `/group/${groupId}/channel/${channelId}?message=${messageId}`;
+    }
+
+    if (serverId) {
+      return `/server/${serverId}/channel/${channelId}?message=${messageId}`;
+    }
+
+    return '/';
+  };
+
+  const handleAnswer = (channelId: string, messageId: string) => {
+    navigate(buildChannelPath(channelId, messageId));
+  };
+
+  const handleMarkAsAnswered = async (questionId: string) => {
+    try {
+      await markQuestionAnswered(questionId);
+      await loadQuestions();
+    } catch {
+      return;
+    }
+  };
 
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
@@ -89,7 +106,9 @@ export function UnansweredQuestions() {
             Something went wrong. Please try again.
           </p>
           <button
-            onClick={() => setViewState('success')}
+            onClick={() => {
+              void loadQuestions();
+            }}
             className="px-4 py-2 bg-[#6264a7] text-white text-sm rounded hover:bg-[#5b5fc7] transition-colors"
           >
             Retry
@@ -165,10 +184,18 @@ export function UnansweredQuestions() {
               </div>
             </div>
             <div className="mt-2 ml-11 flex gap-2">
-              <button className="px-3 py-1 text-xs bg-[#6264a7] text-white rounded hover:bg-[#5b5fc7] transition-colors">
+              <button
+                onClick={() => handleAnswer(question.channelId, question.messageId)}
+                className="px-3 py-1 text-xs bg-[#6264a7] text-white rounded hover:bg-[#5b5fc7] transition-colors"
+              >
                 Answer
               </button>
-              <button className="px-3 py-1 text-xs bg-white border border-[#e0e0e0] text-[#424242] rounded hover:bg-[#f5f5f5] transition-colors">
+              <button
+                onClick={() => {
+                  void handleMarkAsAnswered(question.id);
+                }}
+                className="px-3 py-1 text-xs bg-white border border-[#e0e0e0] text-[#424242] rounded hover:bg-[#f5f5f5] transition-colors"
+              >
                 Mark as answered
               </button>
             </div>
@@ -176,36 +203,6 @@ export function UnansweredQuestions() {
         ))}
       </div>
 
-      {/* State Toggle Buttons (for demo purposes) */}
-      <div className="px-4 py-3 border-t border-[#e0e0e0] bg-[#f9fafb]">
-        <p className="text-xs text-[#616161] mb-2 font-medium">Demo States:</p>
-        <div className="flex flex-wrap gap-1">
-          <button
-            onClick={() => setViewState('loading')}
-            className="px-2 py-1 text-xs bg-white border border-[#e0e0e0] rounded hover:bg-[#f5f5f5]"
-          >
-            Loading
-          </button>
-          <button
-            onClick={() => setViewState('error')}
-            className="px-2 py-1 text-xs bg-white border border-[#e0e0e0] rounded hover:bg-[#f5f5f5]"
-          >
-            Error
-          </button>
-          <button
-            onClick={() => setViewState('empty')}
-            className="px-2 py-1 text-xs bg-white border border-[#e0e0e0] rounded hover:bg-[#f5f5f5]"
-          >
-            Empty
-          </button>
-          <button
-            onClick={() => setViewState('success')}
-            className="px-2 py-1 text-xs bg-white border border-[#e0e0e0] rounded hover:bg-[#f5f5f5]"
-          >
-            Success
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

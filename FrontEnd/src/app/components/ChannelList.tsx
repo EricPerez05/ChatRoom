@@ -1,48 +1,68 @@
-import { Link, useNavigate, useParams } from 'react-router';
-import { Hash, Plus, MoreHorizontal, Bell, BellOff } from 'lucide-react';
-import { Channel, Server } from '../data/mockData';
+import { Link, useParams } from 'react-router';
+import { Hash, Plus, Bell, BellOff } from 'lucide-react';
+import { Channel, Server } from '../types/chat';
 import { useEffect, useState } from 'react';
 import { UnansweredQuestions } from './UnansweredQuestions';
 import { OngoingDiscussions } from './OngoingDiscussions';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { createGroupChannel, createServerChannel, getDiscussions, getQuestions } from '../services/api';
 
 interface ChannelListProps {
   server: Server;
-  callStatus?: {
-    isInCall: boolean;
-    isVideoOn: boolean;
-    currentUserName?: string;
-  };
+  onChannelCreated?: (containerId: string, channel: Channel) => void;
 }
 
-export function ChannelList({ server, callStatus }: ChannelListProps) {
-  const navigate = useNavigate();
-  const { channelId } = useParams();
+export function ChannelList({ server, onChannelCreated }: ChannelListProps) {
+  const { channelId, serverId, groupId } = useParams();
 
   const [activeTab, setActiveTab] = useState<'channels' | 'questions' | 'discussions'>('channels');
   const [localChannels, setLocalChannels] = useState<Channel[]>(server.channels);
   const [mutedChannels, setMutedChannels] = useState<Set<string>>(new Set());
-  const [isServerMuted, setIsServerMuted] = useState(false);
   const [serverDisplayName, setServerDisplayName] = useState(server.name);
-  const [isRenamingServer, setIsRenamingServer] = useState(false);
-  const [draftServerName, setDraftServerName] = useState(server.name);
   const [addingChannelCategory, setAddingChannelCategory] = useState<string | null>(null);
   const [newChannelName, setNewChannelName] = useState('');
+  const channelIds = localChannels.map((channel) => channel.id);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [discussionCount, setDiscussionCount] = useState(0);
+
+  const loadTabCounts = async () => {
+    const [questions, discussions] = await Promise.all([
+      getQuestions(channelIds),
+      getDiscussions(channelIds),
+    ]);
+
+    setQuestionCount(questions.length);
+    setDiscussionCount(
+      discussions.filter(
+        (discussion) => discussion.status === 'active' || discussion.status === 'detected',
+      ).length,
+    );
+  };
 
   useEffect(() => {
     setServerDisplayName(server.name);
-    setDraftServerName(server.name);
-    setIsRenamingServer(false);
     setLocalChannels(server.channels);
     setAddingChannelCategory(null);
     setNewChannelName('');
-  }, [server.id, server.name]);
+  }, [server.id, server.name, server.channels]);
+
+  useEffect(() => {
+    void loadTabCounts();
+
+    const intervalId = window.setInterval(() => {
+      void loadTabCounts();
+    }, 3000);
+
+    const handleWindowFocus = () => {
+      void loadTabCounts();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [channelIds.join('|')]);
 
   const toggleChannelMute = (channelIdToToggle: string) => {
     setMutedChannels((current) => {
@@ -56,30 +76,7 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
     });
   };
 
-  const handleStartRenameServer = () => {
-    setDraftServerName(serverDisplayName);
-    setIsRenamingServer(true);
-  };
-
-  const handleSubmitRenameServer = () => {
-    const nextName = draftServerName.trim();
-    if (nextName) {
-      setServerDisplayName(nextName);
-    }
-    setDraftServerName((current) => current.trim() || serverDisplayName);
-    setIsRenamingServer(false);
-  };
-
-  const handleCancelRenameServer = () => {
-    setDraftServerName(serverDisplayName);
-    setIsRenamingServer(false);
-  };
-
-  const handleLeaveServer = () => {
-    navigate('/');
-  };
-
-  const handleCreateChannel = (category: string) => {
+  const handleCreateChannel = async (category: string) => {
     if (!newChannelName.trim()) {
       return;
     }
@@ -89,21 +86,43 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
       .toLowerCase()
       .replace(/\s+/g, '-');
 
-    const newChannel: Channel = {
-      id: `c-${Date.now()}`,
-      name: normalizedName,
-      type: 'text',
-      category,
-    };
+    try {
+      let created: Channel | undefined;
 
-    setLocalChannels((current) => [...current, newChannel]);
-    setNewChannelName('');
-    setAddingChannelCategory(null);
+      if (serverId) {
+        created = await createServerChannel(serverId, {
+          name: normalizedName,
+          type: 'text',
+          category,
+        });
+      } else if (groupId) {
+        created = await createGroupChannel(groupId, {
+          name: normalizedName,
+          type: 'text',
+          category,
+        });
+      }
+
+      if (created) {
+        onChannelCreated?.(server.id, created);
+        setLocalChannels((current) => {
+          if (current.some((channel) => channel.id === created.id)) {
+            return current;
+          }
+          return [...current, created];
+        });
+      }
+    } catch {
+      return;
+    } finally {
+      setNewChannelName('');
+      setAddingChannelCategory(null);
+      void loadTabCounts();
+    }
   };
 
   // Group channels by category
   const categories = localChannels.reduce((acc, channel) => {
-    // Only show text channels; voice channels have been removed in favor of a call box
     if (!acc[channel.category]) {
       acc[channel.category] = [];
     }
@@ -111,80 +130,19 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
     return acc;
   }, {} as Record<string, typeof server.channels>);
 
-  const currentUserName = callStatus?.currentUserName || 'You';
-  const callMembers = [...(server.currentCallMembers || [])];
-  if (callStatus?.isInCall && !callMembers.includes(currentUserName)) {
-    callMembers.push(currentUserName);
-  }
-
   return (
     <div className="w-80 bg-white border-r border-[#e0e0e0] flex flex-col">
       {/* Server Header */}
       <div className="px-5 py-4 border-b border-[#e0e0e0]">
         <div className="flex items-center justify-between mb-3">
-          {isRenamingServer ? (
-            <input
-              autoFocus
-              type="text"
-              value={draftServerName}
-              onChange={(e) => setDraftServerName(e.target.value)}
-              onFocus={(e) => e.currentTarget.select()}
-              onBlur={handleSubmitRenameServer}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSubmitRenameServer();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  handleCancelRenameServer();
-                }
-              }}
-              className="flex-1 min-w-0 mr-2 text-xl font-semibold text-[#242424] bg-transparent border border-[#d1d1d1] rounded px-2 py-0.5 outline-none focus:border-[#6264a7]"
-            />
-          ) : (
-            <h2 className="text-xl font-semibold text-[#242424] truncate">{serverDisplayName}</h2>
-          )}
-          <div className="flex items-center gap-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="p-1.5 hover:bg-[#f5f5f5] rounded" type="button">
-                  <MoreHorizontal className="w-4 h-4 text-[#616161]" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onSelect={(e) => {
-                  e.preventDefault();
-                  handleStartRenameServer();
-                }}>
-                  Rename Server
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={(e) => {
-                  e.preventDefault();
-                  setIsServerMuted((current) => !current);
-                }}>
-                  {isServerMuted ? 'Unmute Server' : 'Mute Server'}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    handleLeaveServer();
-                  }}
-                >
-                  Leave Server
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <h2 className="text-xl font-semibold text-[#242424] truncate">{serverDisplayName}</h2>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 overflow-x-auto">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => setActiveTab('channels')}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors text-center ${
               activeTab === 'channels'
                 ? 'border-[#6264a7] text-[#6264a7]'
                 : 'border-transparent text-[#616161] hover:text-[#242424]'
@@ -194,29 +152,33 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
           </button>
           <button
             onClick={() => setActiveTab('discussions')}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors relative whitespace-nowrap ${
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors relative text-center ${
               activeTab === 'discussions'
                 ? 'border-[#6264a7] text-[#6264a7]'
                 : 'border-transparent text-[#616161] hover:text-[#242424]'
             }`}
           >
             Discussions
-            <span className="absolute -top-1 -right-2 w-4 h-4 bg-[#059669] text-white text-[10px] rounded-full flex items-center justify-center">
-              2
-            </span>
+            {discussionCount > 0 && (
+              <span className="absolute -top-1 -right-2 w-4 h-4 bg-[#059669] text-white text-[10px] rounded-full flex items-center justify-center">
+                {discussionCount > 9 ? '9+' : discussionCount}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('questions')}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors relative whitespace-nowrap ${
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors relative text-center ${
               activeTab === 'questions'
                 ? 'border-[#6264a7] text-[#6264a7]'
                 : 'border-transparent text-[#616161] hover:text-[#242424]'
             }`}
           >
             Questions
-            <span className="absolute -top-1 -right-2 w-4 h-4 bg-[#ea580c] text-white text-[10px] rounded-full flex items-center justify-center">
-              3
-            </span>
+            {questionCount > 0 && (
+              <span className="absolute -top-1 -right-2 w-4 h-4 bg-[#ea580c] text-white text-[10px] rounded-full flex items-center justify-center">
+                {questionCount > 9 ? '9+' : questionCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -292,34 +254,6 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
                             <Bell className="w-3.5 h-3.5 text-[#616161]" />
                           )}
                         </button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="p-1 hover:bg-white rounded"
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
-                              <MoreHorizontal className="w-3.5 h-3.5 text-[#616161]" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuItem onSelect={(e) => {
-                              e.preventDefault();
-                              toggleChannelMute(channel.id);
-                            }}>
-                              {mutedChannels.has(channel.id) ? 'Unmute Channel' : 'Mute Channel'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              Channel Notifications
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              Edit Channel
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </div>
                   </Link>
@@ -337,7 +271,7 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleCreateChannel(category);
+                            void handleCreateChannel(category);
                           }
                           if (e.key === 'Escape') {
                             e.preventDefault();
@@ -351,7 +285,9 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleCreateChannel(category)}
+                          onClick={() => {
+                            void handleCreateChannel(category);
+                          }}
                           className="px-3 py-1.5 text-xs font-medium text-white bg-[#6264a7] rounded hover:bg-[#5b5fc7]"
                         >
                           Create
@@ -386,45 +322,24 @@ export function ChannelList({ server, callStatus }: ChannelListProps) {
             </div>
           ))}
 
-          {/* Currently in call box (replaces voice channels section) */}
-          <div className="px-5 py-3 border-t border-[#f0f0f0] mt-1">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-xs font-semibold text-[#616161] uppercase">
-                Currently in call
-              </h3>
-            </div>
-            {callMembers.length > 0 ? (
-              <ul className="space-y-1">
-                {callMembers.map((name) => (
-                  <li
-                    key={name}
-                    className="flex items-center gap-2 text-sm text-[#424242]"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-[#92c353]" />
-                    <span className="truncate">{name}</span>
-                    {name === currentUserName && callStatus?.isVideoOn && (
-                      <span
-                        className="w-2 h-2 rounded-full bg-[#dc2626]"
-                        title="Recording"
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-[#949494]">
-                No one is currently in the call.
-              </p>
-            )}
-          </div>
         </div>
       )}
 
       {/* Questions Tab */}
-      {activeTab === 'questions' && <UnansweredQuestions />}
+      {activeTab === 'questions' && (
+        <UnansweredQuestions
+          channelIds={channelIds}
+          onCountChange={(count) => setQuestionCount(count)}
+        />
+      )}
 
       {/* Discussions Tab */}
-      {activeTab === 'discussions' && <OngoingDiscussions />}
+      {activeTab === 'discussions' && (
+        <OngoingDiscussions
+          channelIds={channelIds}
+          onActiveCountChange={(count) => setDiscussionCount(count)}
+        />
+      )}
 
     </div>
   );

@@ -1,0 +1,41 @@
+classDiagram
+  class MessageRepository {
+    +listByChannel(channelId)
+    +save(message)
+  }
+  <<interface>> MessageRepository
+
+  class InMemoryMessageRepository {
+    -byChannel
+    -byId
+  }
+  class PostgresMessageRepository {
+    -db
+  }
+
+  class QuestionStatusRepository
+  <<interface>> QuestionStatusRepository
+  class InMemoryQuestionStatusRepository
+  class PostgresQuestionStatusRepository
+
+  class DiscussionStateRepository
+  <<interface>> DiscussionStateRepository
+  class InMemoryDiscussionStateRepository
+  class PostgresDiscussionStateRepository
+
+  class NotificationRepository
+  <<interface>> NotificationRepository
+  class InMemoryNotificationRepository
+  class PostgresNotificationRepository
+
+  InMemoryMessageRepository ..|> MessageRepository
+  PostgresMessageRepository ..|> MessageRepository
+
+  InMemoryQuestionStatusRepository ..|> QuestionStatusRepository
+  PostgresQuestionStatusRepository ..|> QuestionStatusRepository
+
+  InMemoryDiscussionStateRepository ..|> DiscussionStateRepository
+  PostgresDiscussionStateRepository ..|> DiscussionStateRepository
+
+  InMemoryNotificationRepository ..|> NotificationRepository
+  PostgresNotificationRepository ..|> NotificationRepository

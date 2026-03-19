@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MessageSquare, Loader2, AlertCircle, Archive, CheckCircle2, Sparkles, TrendingUp, ChevronDown } from 'lucide-react';
+import { DetectedDiscussion } from '../types/chat';
+import { useNavigate, useParams } from 'react-router';
+import { getDiscussions, updateDiscussionStatus } from '../services/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,71 +10,55 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 
-interface Discussion {
-  id: string;
-  topic: string;
-  status: 'active' | 'detected' | 'resolved' | 'archived';
-  participants: string[];
-  lastActivity: Date;
-  channelName: string;
-  messageCount: number;
-}
-
 type ViewState = 'loading' | 'error' | 'empty' | 'success';
 type DiscussionFilter = 'all' | 'active' | 'past';
 const RESOLVED_RETENTION_DAYS = 7;
 
-export function OngoingDiscussions() {
-  const [viewState, setViewState] = useState<ViewState>('success');
+interface OngoingDiscussionsProps {
+  channelIds?: string[];
+  onActiveCountChange?: (count: number) => void;
+}
+
+export function OngoingDiscussions({ channelIds, onActiveCountChange }: OngoingDiscussionsProps) {
+  const [viewState, setViewState] = useState<ViewState>('loading');
   const [activeFilter, setActiveFilter] = useState<DiscussionFilter>('all');
-  
-  const [discussions, setDiscussions] = useState<Discussion[]>([
-    {
-      id: 'd1',
-      topic: 'Q1 Product Roadmap Planning',
-      status: 'active',
-      participants: ['Alex', 'Jordan', 'Sam'],
-      lastActivity: new Date(2026, 1, 18, 11, 45),
-      channelName: 'general',
-      messageCount: 24,
-    },
-    {
-      id: 'd2',
-      topic: 'New design system implementation',
-      status: 'detected',
-      participants: ['Morgan', 'Casey'],
-      lastActivity: new Date(2026, 1, 18, 10, 30),
-      channelName: 'design-chat',
-      messageCount: 8,
-    },
-    {
-      id: 'd3',
-      topic: 'API performance optimization',
-      status: 'active',
-      participants: ['Taylor', 'Alex', 'Jordan'],
-      lastActivity: new Date(2026, 1, 18, 9, 15),
-      channelName: 'game-chat',
-      messageCount: 15,
-    },
-    {
-      id: 'd4',
-      topic: 'Deployment process documentation',
-      status: 'resolved',
-      participants: ['Sam', 'Morgan'],
-      lastActivity: new Date(2026, 1, 17, 16, 20),
-      channelName: 'general',
-      messageCount: 12,
-    },
-    {
-      id: 'd5',
-      topic: 'Team building event ideas',
-      status: 'archived',
-      participants: ['Casey', 'Taylor', 'Alex'],
-      lastActivity: new Date(2026, 1, 15, 14, 0),
-      channelName: 'random',
-      messageCount: 31,
-    },
-  ]);
+  const [discussions, setDiscussions] = useState<DetectedDiscussion[]>([]);
+  const [hiddenDiscussionIds, setHiddenDiscussionIds] = useState<Set<string>>(new Set());
+  const { serverId, groupId } = useParams();
+  const navigate = useNavigate();
+
+  const loadDiscussions = async () => {
+    setViewState('loading');
+
+    try {
+      const loadedDiscussions = await getDiscussions(channelIds);
+      setDiscussions(loadedDiscussions);
+      onActiveCountChange?.(
+        loadedDiscussions.filter(
+          (discussion) => discussion.status === 'active' || discussion.status === 'detected',
+        ).length,
+      );
+      setViewState(loadedDiscussions.length === 0 ? 'empty' : 'success');
+    } catch {
+      setViewState('error');
+    }
+  };
+
+  useEffect(() => {
+    void loadDiscussions();
+  }, [channelIds?.join('|')]);
+
+  const buildChannelPath = (channelId: string, messageId: string) => {
+    if (groupId) {
+      return `/group/${groupId}/channel/${channelId}?message=${messageId}`;
+    }
+
+    if (serverId) {
+      return `/server/${serverId}/channel/${channelId}?message=${messageId}`;
+    }
+
+    return '/';
+  };
 
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
@@ -86,7 +73,7 @@ export function OngoingDiscussions() {
     return 'Just now';
   };
 
-  const getStatusConfig = (status: Discussion['status']) => {
+  const getStatusConfig = (status: DetectedDiscussion['status']) => {
     switch (status) {
       case 'active':
         return {
@@ -119,14 +106,14 @@ export function OngoingDiscussions() {
     }
   };
 
-  const getDeletionDeadline = (discussion: Discussion) => {
+  const getDeletionDeadline = (discussion: DetectedDiscussion) => {
     return new Date(
       discussion.lastActivity.getTime() +
       RESOLVED_RETENTION_DAYS * 24 * 60 * 60 * 1000,
     );
   };
 
-  const formatTimeUntilDeletion = (discussion: Discussion) => {
+  const formatTimeUntilDeletion = (discussion: DetectedDiscussion) => {
     const deadline = getDeletionDeadline(discussion).getTime();
     const remaining = deadline - Date.now();
 
@@ -145,14 +132,30 @@ export function OngoingDiscussions() {
     return `Deletes in ${Math.max(finalHours, 1)}h`;
   };
 
-  const handleArchiveDiscussion = (discussionId: string) => {
-    setDiscussions((current) =>
-      current.map((discussion) =>
-        discussion.id === discussionId
-          ? { ...discussion, status: 'archived' }
-          : discussion,
-      ),
-    );
+  const handleArchiveDiscussion = async (discussionId: string) => {
+    try {
+      await updateDiscussionStatus(discussionId, 'archived');
+      await loadDiscussions();
+    } catch {
+      return;
+    }
+  };
+
+  const handleResolveDiscussion = async (discussionId: string) => {
+    try {
+      await updateDiscussionStatus(discussionId, 'resolved');
+      await loadDiscussions();
+    } catch {
+      return;
+    }
+  };
+
+  const handleHideDiscussion = (discussionId: string) => {
+    setHiddenDiscussionIds((current) => {
+      const next = new Set(current);
+      next.add(discussionId);
+      return next;
+    });
   };
 
   const getFilterLabel = (filter: DiscussionFilter) => {
@@ -161,15 +164,19 @@ export function OngoingDiscussions() {
     return 'Past';
   };
 
-  const activeCount = discussions.filter(
+  const visibleDiscussions = discussions.filter(
+    (discussion) => !hiddenDiscussionIds.has(discussion.id),
+  );
+
+  const activeCount = visibleDiscussions.filter(
     (discussion) => discussion.status === 'active' || discussion.status === 'detected',
   ).length;
 
-  const pastCount = discussions.filter(
+  const pastCount = visibleDiscussions.filter(
     (discussion) => discussion.status === 'resolved' || discussion.status === 'archived',
   ).length;
 
-  const filteredDiscussions = discussions.filter((discussion) => {
+  const filteredDiscussions = visibleDiscussions.filter((discussion) => {
     if (activeFilter === 'all') {
       return true;
     }
@@ -215,7 +222,9 @@ export function OngoingDiscussions() {
             Unable to retrieve discussion data
           </p>
           <button
-            onClick={() => setViewState('success')}
+            onClick={() => {
+              void loadDiscussions();
+            }}
             className="px-4 py-2 bg-[#6264a7] text-white text-sm rounded hover:bg-[#5b5fc7] transition-colors"
           >
             Retry
@@ -254,7 +263,7 @@ export function OngoingDiscussions() {
             <button className="w-full px-3 py-2 text-sm rounded border border-[#e0e0e0] bg-white text-[#242424] flex items-center justify-between hover:bg-[#f5f5f5] transition-colors">
               <span>
                 {getFilterLabel(activeFilter)}
-                {activeFilter === 'all' && ` (${discussions.length})`}
+                {activeFilter === 'all' && ` (${visibleDiscussions.length})`}
                 {activeFilter === 'active' && ` (${activeCount})`}
                 {activeFilter === 'past' && ` (${pastCount})`}
               </span>
@@ -263,7 +272,7 @@ export function OngoingDiscussions() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuItem onSelect={() => setActiveFilter('all')}>
-              All ({discussions.length})
+              All ({visibleDiscussions.length})
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setActiveFilter('active')}>
               Active ({activeCount})
@@ -349,17 +358,20 @@ export function OngoingDiscussions() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <button className="px-3 py-1 text-xs bg-[#6264a7] text-white rounded hover:bg-[#5b5fc7] transition-colors">
+                      <button
+                        onClick={() => navigate(buildChannelPath(discussion.channelId, discussion.messageId))}
+                        className="px-3 py-1 text-xs bg-[#6264a7] text-white rounded hover:bg-[#5b5fc7] transition-colors"
+                      >
                         View thread
                       </button>
-                      {discussion.status === 'active' && (
-                        <button className="px-3 py-1 text-xs bg-white border border-[#e0e0e0] text-[#424242] rounded hover:bg-[#f5f5f5] transition-colors">
+                      {(discussion.status === 'active' || discussion.status === 'detected') && (
+                        <button
+                          onClick={() => {
+                            void handleResolveDiscussion(discussion.id);
+                          }}
+                          className="px-3 py-1 text-xs bg-white border border-[#e0e0e0] text-[#424242] rounded hover:bg-[#f5f5f5] transition-colors"
+                        >
                           Mark as resolved
-                        </button>
-                      )}
-                      {discussion.status === 'detected' && (
-                        <button className="px-3 py-1 text-xs bg-white border border-[#e0e0e0] text-[#424242] rounded hover:bg-[#f5f5f5] transition-colors">
-                          Confirm as active
                         </button>
                       )}
                       {discussion.status === 'resolved' && (
@@ -370,7 +382,9 @@ export function OngoingDiscussions() {
                             </span>
                           )}
                           <button
-                            onClick={() => handleArchiveDiscussion(discussion.id)}
+                            onClick={() => {
+                              void handleArchiveDiscussion(discussion.id);
+                            }}
                             className="px-3 py-1 text-xs bg-white border border-[#e0e0e0] text-[#424242] rounded hover:bg-[#f5f5f5] transition-colors"
                           >
                             Archive
@@ -378,9 +392,12 @@ export function OngoingDiscussions() {
                         </>
                       )}
                       {discussion.status === 'archived' && (
-                        <span className="px-3 py-1 text-xs bg-[#f3f4f6] border border-[#e5e7eb] text-[#4b5563] rounded">
-                          Archived • kept
-                        </span>
+                        <button
+                          onClick={() => handleHideDiscussion(discussion.id)}
+                          className="px-3 py-1 text-xs bg-[#f3f4f6] border border-[#e5e7eb] text-[#4b5563] rounded hover:bg-[#e5e7eb] transition-colors"
+                        >
+                          Remove from list
+                        </button>
                       )}
                     </div>
                   </div>

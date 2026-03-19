@@ -1,0 +1,5 @@
+flowchart LR
+  EVT[Question Answered Event] --> CRT[Create Notification]
+  CRT --> STO[Persist Notification]
+  STO --> LST[List by User]
+  STO --> MRK[Mark Read]

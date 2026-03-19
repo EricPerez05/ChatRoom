@@ -1,0 +1,23 @@
+classDiagram
+  class AppFactory {
+    +createApp(options)
+  }
+
+  class ApiRouterFactory {
+    +createApiRouter(context, maxWriteRequestsPerMinute)
+  }
+
+  class ApiController {
+    +getHealth(req, res)
+    +getChannelMessages(req, res)
+    +postChannelMessage(req, res)
+    +getQuestions(req, res)
+    +markQuestionAnswered(req, res)
+    +getDiscussions(req, res)
+    +updateDiscussionStatus(req, res)
+    +getNotifications(req, res)
+    +markNotificationRead(req, res)
+  }
+
+  AppFactory --> ApiRouterFactory
+  ApiRouterFactory --> ApiController
