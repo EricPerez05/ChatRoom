@@ -1,0 +1,43 @@
+flowchart TD
+  FE[FrontEnd / External Clients]
+
+  subgraph API[API Orchestration Module]
+    MW[Middleware: Auth, Validation, Rate Limit, Error Handling]
+    RT[Routes]
+    CT[Controllers]
+  end
+
+  subgraph CI[Conversation Intelligence Module]
+    QDS[QuestionDetectionService]
+    QSS[QuestionStatusService]
+    DS[DiscussionService]
+  end
+
+  subgraph NT[Notification Module]
+    NS[NotificationService]
+  end
+
+  subgraph PM[Persistence Module]
+    MR[MessageRepository]
+    QSR[QuestionStatusRepository]
+    DSR[DiscussionStateRepository]
+    NR[NotificationRepository]
+    DB[(PostgreSQL)]
+  end
+
+  FE --> API
+  MW --> RT --> CT
+  CT --> CI
+  CT --> NT
+  QSS --> QDS
+  QSS --> MR
+  QSS --> QSR
+  QSS --> NS
+  DS --> MR
+  DS --> DSR
+  NS --> NR
+
+  MR --> DB
+  QSR --> DB
+  DSR --> DB
+  NR --> DB

@@ -1,0 +1,6 @@
+flowchart LR
+  REQ[HTTP Request] --> MID[Middleware Chain]
+  MID --> RTE[Route Matcher]
+  RTE --> CTRL[Controller Handler]
+  CTRL --> SRV[Domain Service Call]
+  SRV --> RESP[HTTP Response]

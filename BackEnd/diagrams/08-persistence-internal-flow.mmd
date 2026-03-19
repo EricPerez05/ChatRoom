@@ -1,0 +1,5 @@
+flowchart TD
+  SRV[Domain Services] --> IFC[Repository Interfaces]
+  IFC --> MEM[InMemory Adapters]
+  IFC --> PSQL[Postgres Adapters]
+  PSQL --> DB[(PostgreSQL)]

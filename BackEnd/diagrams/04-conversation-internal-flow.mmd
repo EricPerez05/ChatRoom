@@ -1,0 +1,9 @@
+flowchart TD
+  MSG[Ingest Message] --> DET{Likely Question?}
+  DET -- yes --> UQ[Create or Keep Unanswered QuestionStatus]
+  DET -- no --> EVAL[Evaluate Pending Question Transitions]
+  EVAL --> ANS[Mark as Answered]
+  ANS --> EVT[Emit Notification Trigger]
+
+  QRY1[Query Questions] --> QDTO[Map to DetectedQuestionDto]
+  QRY2[Query Discussions] --> DD[Compute Discussion DTOs and Override Status]

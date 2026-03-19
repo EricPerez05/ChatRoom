@@ -1,4 +1,4 @@
-import { Member } from '../data/mockData';
+import { Member } from '../types/chat';
 import { MoreHorizontal } from 'lucide-react';
 
 interface MemberListProps {
