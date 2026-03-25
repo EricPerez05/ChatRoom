@@ -253,6 +253,25 @@ export function OngoingDiscussions({ channelIds, onActiveCountChange }: OngoingD
     );
   }
 
+  // All items hidden client-side — show the same empty state as an empty API response
+  if (visibleDiscussions.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-6">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-[#f5f5f5] rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-[#616161]" />
+          </div>
+          <h3 className="text-sm font-semibold text-[#242424] mb-1">
+            No discussions found
+          </h3>
+          <p className="text-xs text-[#616161]">
+            Start conversations in channels to see them here
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Success State with Discussions
   return (
     <div className="flex-1 flex flex-col">
