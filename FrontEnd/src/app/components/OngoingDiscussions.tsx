@@ -13,6 +13,29 @@ import {
 type ViewState = 'loading' | 'error' | 'empty' | 'success';
 type DiscussionFilter = 'all' | 'active' | 'past';
 const RESOLVED_RETENTION_DAYS = 7;
+const HIDDEN_DISCUSSION_STORAGE_KEY = 'hidden-discussion-ids';
+
+const readHiddenDiscussionIds = () => {
+  try {
+    const raw = localStorage.getItem(HIDDEN_DISCUSSION_STORAGE_KEY);
+    if (!raw) {
+      return new Set<string>();
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return new Set<string>();
+    }
+
+    return new Set(parsed.filter((value): value is string => typeof value === 'string'));
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const writeHiddenDiscussionIds = (hiddenIds: Set<string>) => {
+  localStorage.setItem(HIDDEN_DISCUSSION_STORAGE_KEY, JSON.stringify(Array.from(hiddenIds)));
+};
 
 interface OngoingDiscussionsProps {
   channelIds?: string[];
@@ -23,7 +46,7 @@ export function OngoingDiscussions({ channelIds, onActiveCountChange }: OngoingD
   const [viewState, setViewState] = useState<ViewState>('loading');
   const [activeFilter, setActiveFilter] = useState<DiscussionFilter>('all');
   const [discussions, setDiscussions] = useState<DetectedDiscussion[]>([]);
-  const [hiddenDiscussionIds, setHiddenDiscussionIds] = useState<Set<string>>(new Set());
+  const [hiddenDiscussionIds, setHiddenDiscussionIds] = useState<Set<string>>(readHiddenDiscussionIds);
   const { serverId, groupId } = useParams();
   const navigate = useNavigate();
 
@@ -154,6 +177,7 @@ export function OngoingDiscussions({ channelIds, onActiveCountChange }: OngoingD
     setHiddenDiscussionIds((current) => {
       const next = new Set(current);
       next.add(discussionId);
+      writeHiddenDiscussionIds(next);
       return next;
     });
   };
