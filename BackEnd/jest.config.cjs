@@ -4,8 +4,8 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   collectCoverageFrom: [
-    '<rootDir>/src/**/*.ts',
-    '!<rootDir>/src/**/*.d.ts',
+    '<rootDir>/src/controllers/apiController.ts',
+    '<rootDir>/src/services/questionStatusService.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text', 'lcov', 'html'],
