@@ -21,6 +21,7 @@ module.exports = {
     '<rootDir>/src/**/*.{ts,tsx}',
     '!<rootDir>/src/**/*.d.ts',
     '!<rootDir>/src/**/vite-env.d.ts',
+    '!<rootDir>/src/app/components/ui/**/*.{ts,tsx}',
   ],
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text', 'lcov', 'html'],
