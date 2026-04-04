@@ -42,11 +42,13 @@ const LocationProbe = () => {
   return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
 };
 
-const renderInRouter = () => {
+const renderInRouter = (initialEntries: string[] = ['/']) => {
   return render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={initialEntries}>
       <Routes>
         <Route path="*" element={<><OngoingDiscussions /><LocationProbe /></>} />
+        <Route path="/server/:serverId/channel/:channelId" element={<><OngoingDiscussions /><LocationProbe /></>} />
+        <Route path="/group/:groupId/channel/:channelId" element={<><OngoingDiscussions /><LocationProbe /></>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -216,5 +218,132 @@ describe('OngoingDiscussions (Jest)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('location-probe').textContent).toBe('/');
     });
+  });
+
+  it('shows empty state when API returns no discussions', async () => {
+    const fetchMock = globalThis.fetch as jest.MockedFunction<typeof fetch>;
+    fetchMock.mockResolvedValue(response([]));
+
+    renderInRouter();
+
+    await waitFor(() => {
+      expect(screen.getByText('No discussions found')).toBeTruthy();
+    });
+  });
+
+  it('switches filters between all, active, and past', async () => {
+    const fetchMock = globalThis.fetch as jest.MockedFunction<typeof fetch>;
+    fetchMock.mockResolvedValue(
+      response([
+        {
+          id: 'd-filter-active',
+          topic: 'Active topic',
+          status: 'active',
+          participants: ['A', 'B'],
+          lastActivity: '2026-04-04T10:00:00.000Z',
+          channelId: 'c1',
+          channelName: 'general',
+          messageCount: 3,
+          messageId: 'm1',
+        },
+        {
+          id: 'd-filter-past',
+          topic: 'Resolved topic',
+          status: 'resolved',
+          participants: ['A', 'B'],
+          lastActivity: '2026-04-04T09:00:00.000Z',
+          channelId: 'c1',
+          channelName: 'general',
+          messageCount: 4,
+          messageId: 'm2',
+        },
+      ]),
+    );
+
+    renderInRouter();
+
+    await waitFor(() => {
+      expect(screen.getByText('Active topic')).toBeTruthy();
+      expect(screen.getByText('Resolved topic')).toBeTruthy();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'All (2)' }));
+    await userEvent.click(await screen.findByText('Active (1)'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Active topic')).toBeTruthy();
+      expect(screen.queryByText('Resolved topic')).toBeNull();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Active (1)' }));
+    await userEvent.click(await screen.findByText('Past (1)'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Active topic')).toBeNull();
+      expect(screen.getByText('Resolved topic')).toBeTruthy();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Past (1)' }));
+    await userEvent.click(await screen.findByText('All (2)'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Active topic')).toBeTruthy();
+      expect(screen.getByText('Resolved topic')).toBeTruthy();
+    });
+  });
+
+  it('archives resolved discussion and refreshes list', async () => {
+    const fetchMock = globalThis.fetch as jest.MockedFunction<typeof fetch>;
+    fetchMock
+      .mockResolvedValueOnce(
+        response([
+          {
+            id: 'd-resolved-1',
+            topic: 'Resolved before archive',
+            status: 'resolved',
+            participants: ['Alice', 'Bob'],
+            lastActivity: '2026-04-04T10:00:00.000Z',
+            channelId: 'c1',
+            channelName: 'general',
+            messageCount: 7,
+            messageId: 'm7',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(response({ id: 'd-resolved-1', status: 'archived' }))
+      .mockResolvedValueOnce(
+        response([
+          {
+            id: 'd-resolved-1',
+            topic: 'Resolved before archive',
+            status: 'archived',
+            participants: ['Alice', 'Bob'],
+            lastActivity: '2026-04-04T10:00:00.000Z',
+            channelId: 'c1',
+            channelName: 'general',
+            messageCount: 7,
+            messageId: 'm7',
+          },
+        ]),
+      );
+
+    renderInRouter();
+
+    await waitFor(() => {
+      expect(screen.getByText('Resolved before archive')).toBeTruthy();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:4000/api/discussions/d-resolved-1/status',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'archived' }),
+        }),
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
