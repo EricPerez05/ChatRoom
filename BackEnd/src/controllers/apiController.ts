@@ -97,6 +97,7 @@ export const createApiController = (context: AppContext) => {
 
   const getDiscussions = async (req: Request, res: Response) => {
     const channelIds = parseChannelIdsQuery(req);
+    // If no filter is passed, detect discussions across all known channels.
     const sourceChannelIds = channelIds && channelIds.length > 0
       ? channelIds
       : Array.from(context.channelNameMap.keys());
