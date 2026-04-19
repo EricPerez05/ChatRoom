@@ -7,6 +7,8 @@
     "build": "vite build",
     "dev": "vite",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config jest.config.cjs",
+    "test:integration": "vitest run",
+    "test:integration:deployed": "vitest run tests/integration/deployed-environment.integration.test.ts",
     "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config jest.config.cjs --coverage",
     "test:vitest": "vitest run",
     "test:jest": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config jest.config.cjs",

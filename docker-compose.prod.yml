@@ -1,0 +1,29 @@
+version: '3.9'
+services:
+  backend:
+    build:
+      context: ./BackEnd
+      dockerfile: Dockerfile
+    environment:
+      PORT: 4000
+      PERSISTENCE_MODE: memory
+      CORS_ORIGIN: http://localhost:8080
+    ports:
+      - '4000:4000'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./FrontEnd
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:4000
+    ports:
+      - '8080:80'
+    depends_on:
+      backend:
+        condition: service_healthy

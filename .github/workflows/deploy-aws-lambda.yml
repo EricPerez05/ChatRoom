@@ -1,0 +1,59 @@
+name: Deploy AWS Lambda
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'BackEnd/**'
+      - '.github/workflows/deploy-aws-lambda.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-lambda:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: BackEnd
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: BackEnd/package-lock.json
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build:lambda
+          npm prune --omit=dev
+
+      - name: Package Lambda zip
+        run: |
+          zip -r lambda-function.zip dist node_modules package.json
+
+      - name: Deploy Lambda code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://lambda-function.zip \
+            --region $AWS_REGION
