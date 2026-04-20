@@ -46,7 +46,10 @@ From `BackEnd`:
 1. `npm ci`
 2. `npm run build:lambda`
 3. `npm prune --omit=dev`
-4. `zip -r lambda-function.zip dist node_modules package.json`
+4. Create deployment zip:
+  - PowerShell: `Compress-Archive -Path dist,node_modules,package.json -DestinationPath lambda-function.zip -Force`
+  - bash/macOS/Linux: `zip -r lambda-function.zip dist node_modules package.json`
+5. (recommended after packaging on local machine) `npm ci` to restore dev dependencies for local development.
 
 ### Deploy code
 

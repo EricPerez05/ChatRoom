@@ -109,8 +109,11 @@ From `BackEnd`:
 1. `npm ci`
 2. `npm run build:lambda`
 3. `npm prune --omit=dev`
-4. `zip -r lambda-function.zip dist node_modules package.json`
+4. Create deployment zip:
+	- PowerShell: `Compress-Archive -Path dist,node_modules,package.json -DestinationPath lambda-function.zip -Force`
+	- bash/macOS/Linux: `zip -r lambda-function.zip dist node_modules package.json`
 5. `aws lambda update-function-code --function-name <your-function-name> --zip-file fileb://lambda-function.zip --region <your-region>`
+6. (recommended after packaging on local machine) `npm ci` to restore dev dependencies for normal local development.
 
 Lambda handler value should be:
 
@@ -171,6 +174,7 @@ Recommended repository protection for `main`:
 	- `run-backend-tests`
 	- `run-frontend-tests`
 	- `integration-tests` (from `run-integration-tests.yml`)
+4. Disable direct pushes to `main`.
 
 Also follow this workflow:
 
@@ -178,6 +182,26 @@ Also follow this workflow:
 2. Push branch and open PR.
 3. Wait for CI checks and review approval.
 4. Merge only after checks pass.
+
+## Assignment requirement coverage checklist
+
+- AWS account creation and console login: manual, must be done by your team in AWS Console.
+- Lambda console experimentation (dummy function): documented in `deploy/aws/lambda-api-gateway-amplify-playbook.md`.
+- Lambda packaging + AWS CLI upload/invoke: documented and CI workflow included.
+- API Gateway integration with Lambda: documented and compatible with `BackEnd/src/lambda.ts`.
+- Frontend API endpoint switch from localhost to cloud endpoint with local fallback: implemented in `FrontEnd/src/app/services/api.ts`.
+- Frontend hosting with Amplify: documented and automated via `.github/workflows/deploy-aws-amplify.yml`.
+- Integration test specification (English + table): `User Stories/Test Specifications/frontend-backend-integration-test-spec.md`.
+- Integration tests implementation: `FrontEnd/tests/integration/frontend-backend.integration.test.ts` and `FrontEnd/tests/integration/deployed-environment.integration.test.ts`.
+- Integration tests in CI: `.github/workflows/run-integration-tests.yml`.
+- CD on push to `main` for backend Lambda and frontend Amplify: `.github/workflows/deploy-aws-lambda.yml` and `.github/workflows/deploy-aws-amplify.yml`.
+
+## Actions you still perform manually
+
+- Create AWS account, Lambda function, API Gateway API, and Amplify app.
+- Add GitHub repository secrets/variables in your repo settings.
+- Configure GitHub branch protection rules.
+- Create a real feature-branch PR in GitHub and verify green checks in the Actions tab.
 
 ## Notes
 
