@@ -7,6 +7,7 @@ export function Home() {
   const [servers, setServers] = useState<Server[]>([]);
   const [groups, setGroups] = useState<Server[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -18,6 +19,10 @@ export function Home() {
 
         setServers(loadedServers);
         setGroups(loadedGroups);
+        setLoadError(null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error while loading chats';
+        setLoadError(message);
       } finally {
         setIsLoading(false);
       }
@@ -28,6 +33,14 @@ export function Home() {
 
   if (isLoading) {
     return <div className="h-screen flex items-center justify-center text-sm text-[#616161]">Loading chats...</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-screen flex items-center justify-center text-sm text-[#616161] px-6 text-center">
+        Unable to load chats from the backend. Check your API URL and CORS settings, then redeploy. ({loadError})
+      </div>
+    );
   }
 
   const firstServer = servers[0];
