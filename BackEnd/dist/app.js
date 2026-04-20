@@ -19,7 +19,16 @@ const createApp = (options = {}) => {
 exports.createApp = createApp;
 const createAppInternal = async (app, options) => {
     const context = options.context || await (0, appContext_1.createAppContext)();
-    app.use((0, cors_1.default)({ origin: [env_1.env.corsOrigin] }));
+    app.use((0, cors_1.default)({
+        origin: (origin, callback) => {
+            // Allow non-browser clients and same-origin requests without Origin header.
+            if (!origin) {
+                callback(null, true);
+                return;
+            }
+            callback(null, env_1.env.corsOrigins.includes(origin));
+        },
+    }));
     app.use(express_1.default.json());
     if (options.enableRequestLogging ?? true) {
         app.use(requestLogger_1.requestLogger);

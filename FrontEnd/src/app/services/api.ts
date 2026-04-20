@@ -10,9 +10,9 @@ import {
 } from '../types/chat';
 
 const API_BASE_URL = (
-  // Use VITE_API_URL when available; fallback keeps local development working.
-  (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL
-  || 'http://localhost:4000'
+  // In production, default to same-origin so reverse proxies/CDNs work without extra config.
+  ((import.meta as ImportMeta & { env?: { DEV?: boolean; VITE_API_URL?: string } }).env?.VITE_API_URL
+    || ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV ? 'http://localhost:4000' : ''))
 );
 
 const fetchJson = async <T>(path: string): Promise<T> => {

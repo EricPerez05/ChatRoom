@@ -13,7 +13,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
+    "build:lambda": "npm run build",
     "start": "node dist/index.js",
+    "start:lambda-local": "node -e \"require('./dist/lambda').handler({ httpMethod: 'GET', path: '/health', headers: {}, requestContext: {} }, {}, (err, data) => { if (err) { console.error(err); process.exit(1); } console.log(data); });\"",
     "db:migrate": "tsx src/db/migrate.ts",
     "test": "jest --config jest.config.cjs",
     "test:coverage": "jest --config jest.config.cjs --coverage",
@@ -26,9 +28,11 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "@vendia/serverless-express": "^4.12.6"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.155",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
