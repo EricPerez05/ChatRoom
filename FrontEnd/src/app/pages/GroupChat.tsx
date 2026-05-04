@@ -13,6 +13,7 @@ export function GroupChat() {
   const [groups, setGroups] = useState<Server[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [channelMessages, setChannelMessages] = useState<Message[]>([]);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const messageRequestId = useRef(0);
 
@@ -37,6 +38,7 @@ export function GroupChat() {
   useLayoutEffect(() => {
     if (!channelId) {
       setChannelMessages([]);
+      setIsMessagesLoading(false);
       return;
     }
     setChannelMessages([]);
@@ -44,11 +46,13 @@ export function GroupChat() {
 
   useEffect(() => {
     if (!channelId) {
+      setIsMessagesLoading(false);
       return;
     }
 
     const controller = new AbortController();
     const requestId = ++messageRequestId.current;
+    setIsMessagesLoading(true);
 
     const loadMessages = async () => {
       try {
@@ -68,6 +72,10 @@ export function GroupChat() {
           return;
         }
         setChannelMessages([]);
+      } finally {
+        if (messageRequestId.current === requestId) {
+          setIsMessagesLoading(false);
+        }
       }
     };
 
@@ -130,6 +138,7 @@ export function GroupChat() {
               setIsParticipantsVisible((current) => !current)
             }
             onSendMessage={handleSendMessage}
+            isMessagesLoading={isMessagesLoading}
           />
           {isParticipantsVisible && <MemberList members={members} />}
         </>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hash, Users, Send, Smile, Bold, Italic, Underline, AtSign } from 'lucide-react';
+import { Hash, Users, Send, Smile, Bold, Italic, Underline, AtSign, Loader2 } from 'lucide-react';
 import { Channel, CreateMessageInput, Member, Message, PostMessageResult } from '../types/chat';
 import { useLocation } from 'react-router';
 import {
@@ -16,6 +16,8 @@ interface MessageAreaProps {
   isParticipantsVisible: boolean;
   onToggleParticipants: () => void;
   onSendMessage: (channelId: string, payload: CreateMessageInput) => Promise<PostMessageResult>;
+  /** True while the parent is fetching messages for this channel (e.g. after switching channels). */
+  isMessagesLoading?: boolean;
 }
 
 interface LocalMessage extends Message {
@@ -255,7 +257,7 @@ export function MessageArea({
 
   const handleSendMessage = async () => {
     const trimmed = newMessage.trim();
-    if (!trimmed || isSending) {
+    if (!trimmed || isSending || isMessagesLoading) {
       return;
     }
 
@@ -382,8 +384,23 @@ export function MessageArea({
         </div>
       </div>
 
+      {isMessagesLoading && (
+        <div
+          className="shrink-0 flex items-center gap-2 px-6 py-2.5 bg-[#f5f5ff] border-b border-[#e0e0e8] text-[#3f3f8f] text-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-[#6264a7]" aria-hidden />
+          Loading messages…
+        </div>
+      )}
+
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-4"
+        aria-busy={isMessagesLoading}
+      >
         {/* Channel Start */}
         <div className="mb-6 pb-6 border-b border-[#e0e0e0]">
           <div className="w-12 h-12 rounded-full bg-[#6264a7] flex items-center justify-center mb-3">
@@ -485,6 +502,7 @@ export function MessageArea({
             <input
               ref={inputRef}
               type="text"
+              disabled={isMessagesLoading}
               value={newMessage}
               onChange={(e) => {
                 const value = e.target.value;
@@ -528,7 +546,7 @@ export function MessageArea({
                     return;
                   }
                 }
-                if (e.key === 'Enter' && newMessage.trim()) {
+                if (e.key === 'Enter' && newMessage.trim() && !isMessagesLoading) {
                   e.preventDefault();
                   void handleSendMessage();
                 }
@@ -633,7 +651,7 @@ export function MessageArea({
                 void handleSendMessage();
               }}
               className="p-1.5 hover:bg-[#f5f5f5] rounded text-[#6264a7] hover:text-[#5b5fc7] disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSending || !newMessage.trim()}
+              disabled={isSending || !newMessage.trim() || isMessagesLoading}
             >
               <Send className="w-4 h-4" />
             </button>
