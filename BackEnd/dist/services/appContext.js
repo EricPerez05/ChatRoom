@@ -12,6 +12,9 @@ const notificationService_1 = require("./notificationService");
 const questionDetectionService_1 = require("./questionDetectionService");
 const questionStatusService_1 = require("./questionStatusService");
 const channelCatalogService_1 = require("./channelCatalogService");
+const simulatedResponseService_1 = require("./simulatedResponseService");
+const memberPresenceService_1 = require("./memberPresenceService");
+const simulatedConversationService_1 = require("./simulatedConversationService");
 const discussionStateRepository_1 = require("../repositories/discussionStateRepository");
 const flattenMessages = () => {
     const all = { ...mockData_1.messages, ...mockData_1.groupMessages };
@@ -30,6 +33,7 @@ const buildChannelNameMap = () => {
     return new Map(allChannels.map((channel) => [channel.id, channel.name]));
 };
 const createAppContext = async () => {
+    const activeMembers = mockData_1.members.map((member) => ({ ...member }));
     const channelNameMap = buildChannelNameMap();
     const seededMessages = flattenMessages();
     let messageRepository;
@@ -51,17 +55,22 @@ const createAppContext = async () => {
     }
     const questionDetectionService = new questionDetectionService_1.QuestionDetectionService();
     const notificationService = new notificationService_1.NotificationService(notificationRepository);
+    const memberPresenceService = new memberPresenceService_1.MemberPresenceService(activeMembers);
+    memberPresenceService.startAutoUpdates();
+    const simulatedResponseService = new simulatedResponseService_1.SimulatedResponseService(activeMembers, questionDetectionService, memberPresenceService);
     const questionStatusService = new questionStatusService_1.QuestionStatusService(messageRepository, questionStatusRepository, questionDetectionService, notificationService);
     if (env_1.env.persistenceMode === 'memory') {
         await questionStatusService.seedFromExistingMessages(seededMessages);
     }
     const discussionService = new discussionService_1.DiscussionService(discussionStateRepository);
     const channelCatalogService = new channelCatalogService_1.ChannelCatalogService(mockData_1.servers, mockData_1.groups, channelNameMap);
+    const simulatedConversationService = new simulatedConversationService_1.SimulatedConversationService(messageRepository, simulatedResponseService);
+    simulatedConversationService.startAutoReplies();
     return {
         staticData: {
             servers: mockData_1.servers,
             groups: mockData_1.groups,
-            members: mockData_1.members,
+            members: activeMembers,
         },
         channelNameMap,
         services: {
@@ -70,6 +79,9 @@ const createAppContext = async () => {
             notificationService,
             discussionService,
             channelCatalogService,
+            simulatedResponseService,
+            memberPresenceService,
+            simulatedConversationService,
         },
         repositories: {
             messageRepository,

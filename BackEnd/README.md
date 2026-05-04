@@ -44,6 +44,9 @@ This README is an operations guide for site reliability engineers supporting the
 - `MAX_WRITE_REQUESTS_PER_MINUTE` (default: `60`)
 - `PERSISTENCE_MODE` (`memory` or `postgres`, default: `memory`)
 - `DATABASE_URL` (required when `PERSISTENCE_MODE=postgres`)
+- `LLM_PROVIDER` (`template` or `ollama`, default: `template`)
+- `OLLAMA_BASE_URL` (default: `http://localhost:11434`)
+- `OLLAMA_MODEL` (default: `llama3.1`)
 
 Example Postgres mode environment:
 
@@ -53,6 +56,12 @@ DATABASE_URL=postgres://<user>:<password>@localhost:5432/chatroom
 PORT=4000
 CORS_ORIGIN=http://localhost:5173
 MAX_WRITE_REQUESTS_PER_MINUTE=60
+```
+
+For local development, you can copy the sample file and set values in `BackEnd/.env`:
+
+```bash
+cp .env.example .env
 ```
 
 ## 4) Install and Build

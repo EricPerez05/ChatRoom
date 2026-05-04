@@ -33,7 +33,7 @@ describe('Backend API integration', () => {
     expect(unansweredAfterQuestion.status).toBe(200);
     expect(
       unansweredAfterQuestion.body.some(
-        (entry: { messageId: string }) => entry.messageId === questionResponse.body.id,
+        (entry: { messageId: string }) => entry.messageId === questionResponse.body.message.id,
       ),
     ).toBe(true);
 
@@ -55,7 +55,7 @@ describe('Backend API integration', () => {
     expect(unansweredAfterAnswer.status).toBe(200);
     expect(
       unansweredAfterAnswer.body.some(
-        (entry: { messageId: string }) => entry.messageId === questionResponse.body.id,
+        (entry: { messageId: string }) => entry.messageId === questionResponse.body.message.id,
       ),
     ).toBe(false);
 
@@ -146,7 +146,7 @@ describe('Backend API integration', () => {
       .query({ channelIds: 'c2' });
 
     const target = unansweredBefore.body.find(
-      (entry: { messageId: string }) => entry.messageId === question.body.id,
+      (entry: { messageId: string }) => entry.messageId === question.body.message.id,
     ) as { id: string } | undefined;
 
     expect(target).toBeTruthy();
@@ -165,7 +165,7 @@ describe('Backend API integration', () => {
 
     expect(
       unansweredAfter.body.some(
-        (entry: { messageId: string }) => entry.messageId === question.body.id,
+        (entry: { messageId: string }) => entry.messageId === question.body.message.id,
       ),
     ).toBe(false);
   });

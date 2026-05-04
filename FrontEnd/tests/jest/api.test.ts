@@ -111,13 +111,26 @@ describe('api.ts', () => {
 
   it('postChannelMessage sends x-user-id from payload and deserializes timestamp', async () => {
     mockFetchJson({
-      id: 'm2',
-      channelId: 'c1',
-      userId: 'u7',
-      userName: 'Sam',
-      userAvatar: 'S',
-      content: 'reply',
-      timestamp: '2026-04-04T12:05:00.000Z',
+      message: {
+        id: 'm2',
+        channelId: 'c1',
+        userId: 'u7',
+        userName: 'Sam',
+        userAvatar: 'S',
+        content: 'reply',
+        timestamp: '2026-04-04T12:05:00.000Z',
+      },
+      simulated: [
+        {
+          id: 'm-sim-1',
+          channelId: 'c1',
+          userId: 'u1',
+          userName: 'Alex',
+          userAvatar: 'A',
+          content: 'Thanks for the update.',
+          timestamp: '2026-04-04T12:05:01.000Z',
+        },
+      ],
     });
 
     const created = await postChannelMessage('c1', {
@@ -126,7 +139,8 @@ describe('api.ts', () => {
       content: 'reply',
     });
 
-    expect(created.timestamp).toBeInstanceOf(Date);
+    expect(created.message.timestamp).toBeInstanceOf(Date);
+    expect(created.simulated[0].timestamp).toBeInstanceOf(Date);
     expect(globalThis.fetch).toHaveBeenCalledWith(
       'http://localhost:4000/api/channels/c1/messages',
       expect.objectContaining({

@@ -39,7 +39,7 @@ describe('User stories module API path smoke test', () => {
     expect(unansweredAfterAsk.status).toBe(200);
     expect(
       unansweredAfterAsk.body.some(
-        (entry: { messageId: string }) => entry.messageId === ask.body.id,
+        (entry: { messageId: string }) => entry.messageId === ask.body.message.id,
       ),
     ).toBe(true);
 
@@ -61,7 +61,7 @@ describe('User stories module API path smoke test', () => {
     expect(unansweredAfterAnswer.status).toBe(200);
     expect(
       unansweredAfterAnswer.body.some(
-        (entry: { messageId: string }) => entry.messageId === ask.body.id,
+        (entry: { messageId: string }) => entry.messageId === ask.body.message.id,
       ),
     ).toBe(false);
 

@@ -79,10 +79,10 @@ describe('Frontend to backend integration', () => {
       content: 'Can someone review the integration test pipeline?',
     });
 
-    expect(posted.content).toContain('integration test pipeline');
+    expect(posted.message.content).toContain('integration test pipeline');
 
     const refreshedMessages = await getChannelMessages('c2');
-    expect(refreshedMessages.some((message) => message.id === posted.id)).toBe(true);
+    expect(refreshedMessages.some((message) => message.id === posted.message.id)).toBe(true);
   });
 
   it('detects and resolves a question through the public API', async () => {
@@ -115,13 +115,13 @@ describe('Frontend to backend integration', () => {
     });
 
     const questions = await getQuestions(['c12']);
-    const createdQuestion = questions.find((question) => question.messageId === posted.id);
+    const createdQuestion = questions.find((question) => question.messageId === posted.message.id);
     expect(createdQuestion).toBeDefined();
 
     await markQuestionAnswered(createdQuestion!.id);
 
     const notifications = await getNotifications('u3');
-    const target = notifications.find((notification) => notification.questionMessageId === posted.id);
+    const target = notifications.find((notification) => notification.questionMessageId === posted.message.id);
     expect(target).toBeDefined();
 
     const updated = await markNotificationRead(target!.id, 'u3');

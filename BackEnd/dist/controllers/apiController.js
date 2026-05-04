@@ -21,7 +21,7 @@ const createApiController = (context) => {
         res.json(context.staticData.groups);
     };
     const getMembers = (_req, res) => {
-        res.json(context.staticData.members);
+        res.json(context.services.memberPresenceService.listMembers());
     };
     const postServerChannel = (req, res) => {
         const serverId = (0, validation_1.parseServerIdParam)(req);
@@ -55,7 +55,12 @@ const createApiController = (context) => {
             userAvatar: body.userAvatar,
             content: body.content,
         });
-        res.status(201).json(created);
+        context.services.simulatedConversationService.setChannelActive(channelId, body.simulateConversation === true);
+        const simulated = await context.services.simulatedResponseService.generateResponsesForMessage(created, { allowConversation: body.simulateConversation === true });
+        if (simulated.length > 0) {
+            await Promise.all(simulated.map((message) => context.repositories.messageRepository.save(message)));
+        }
+        res.status(201).json({ message: created, simulated });
     };
     const getQuestions = async (req, res) => {
         const channelIds = (0, validation_1.parseChannelIdsQuery)(req);

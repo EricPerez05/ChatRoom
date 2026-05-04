@@ -26,6 +26,7 @@
     "test:jest:question-status-service": "jest --config jest.config.cjs tests/jest/questionStatusService.test.ts"
   },
   "dependencies": {
+    "dotenv": "^17.2.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "pg": "^8.16.3",

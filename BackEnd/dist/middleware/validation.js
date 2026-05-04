@@ -54,6 +54,7 @@ const parseMessageCreateBody = (req) => {
     if (req.user && req.user.id !== body.userId.trim()) {
         throw new apiError_1.ApiError(403, 'Forbidden: user mismatch');
     }
+    const simulateConversation = body.simulateConversation === true;
     return {
         userId: body.userId.trim(),
         userName: body.userName.trim(),
@@ -61,6 +62,7 @@ const parseMessageCreateBody = (req) => {
             ? body.userAvatar.trim()
             : undefined,
         content: body.content.trim(),
+        simulateConversation,
     };
 };
 exports.parseMessageCreateBody = parseMessageCreateBody;

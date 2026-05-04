@@ -30,6 +30,7 @@ type MockContext = {
   repositories: {
     messageRepository: {
       listByChannel: MockFn;
+      save: MockFn;
     };
   };
   services: {
@@ -53,6 +54,15 @@ type MockContext = {
       listByUser: MockFn;
       markRead: MockFn;
     };
+    simulatedResponseService: {
+      generateResponsesForMessage: MockFn;
+    };
+    memberPresenceService: {
+      listMembers: MockFn;
+    };
+    simulatedConversationService: {
+      setChannelActive: MockFn;
+    };
   };
 };
 
@@ -69,6 +79,7 @@ const createMockContext = (): MockContext => ({
   repositories: {
     messageRepository: {
       listByChannel: jest.fn(),
+      save: jest.fn(),
     },
   },
   services: {
@@ -91,6 +102,15 @@ const createMockContext = (): MockContext => ({
     notificationService: {
       listByUser: jest.fn(),
       markRead: jest.fn(),
+    },
+    simulatedResponseService: {
+      generateResponsesForMessage: jest.fn(),
+    },
+    memberPresenceService: {
+      listMembers: jest.fn(),
+    },
+    simulatedConversationService: {
+      setChannelActive: jest.fn(),
     },
   },
 });
@@ -187,7 +207,7 @@ describe('apiController', () => {
     expect(res.json).toHaveBeenCalledWith(context.staticData.groups);
 
     controller.getMembers(req, res);
-    expect(res.json).toHaveBeenCalledWith(context.staticData.members);
+    expect(res.json).toHaveBeenCalledWith(context.services.memberPresenceService.listMembers());
   });
 
   it('postServerChannel returns 201 with created channel', () => {
@@ -241,7 +261,10 @@ describe('apiController', () => {
   it('postChannelMessage ingests message and returns 201', async () => {
     const controller = createApiController(context as any);
     const created = { id: 'm-live-1' };
+    const simulated = [{ id: 'm-sim-1' }];
     context.services.questionStatusService.ingestMessage.mockResolvedValue(created);
+    context.services.simulatedResponseService.generateResponsesForMessage.mockResolvedValue(simulated);
+    context.services.memberPresenceService.listMembers.mockReturnValue(context.staticData.members);
 
     await controller.postChannelMessage(req, res);
 
@@ -252,8 +275,14 @@ describe('apiController', () => {
       userAvatar: 'A',
       content: 'hello',
     });
+    expect(context.services.simulatedConversationService.setChannelActive).toHaveBeenCalledWith('c1', false);
+    expect(context.services.simulatedResponseService.generateResponsesForMessage).toHaveBeenCalledWith(
+      created,
+      { allowConversation: false },
+    );
+    expect(context.repositories.messageRepository.save).toHaveBeenCalledWith(simulated[0]);
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(created);
+    expect(res.json).toHaveBeenCalledWith({ message: created, simulated });
   });
 
   it('getQuestions maps unanswered statuses to DTO and returns it', async () => {
