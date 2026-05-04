@@ -4,6 +4,7 @@ import {
   DetectedQuestion,
   Member,
   Message,
+  PostMessageResult,
   Notification,
   Channel,
   Server,
@@ -103,8 +104,11 @@ export const getChannelMessages = async (channelId: string): Promise<Message[]> 
 export const postChannelMessage = async (
   channelId: string,
   payload: CreateMessageInput,
-): Promise<Message> => {
-  const message = await fetchJsonWithInit<Omit<Message, 'timestamp'> & { timestamp: string | Date }>(
+): Promise<PostMessageResult> => {
+  const result = await fetchJsonWithInit<{
+    message: Omit<Message, 'timestamp'> & { timestamp: string | Date };
+    simulated: Array<Omit<Message, 'timestamp'> & { timestamp: string | Date }>;
+  }>(
     `/api/channels/${channelId}/messages`,
     {
       method: 'POST',
@@ -116,7 +120,10 @@ export const postChannelMessage = async (
     },
   );
 
-  return deserializeMessage(message);
+  return {
+    message: deserializeMessage(result.message),
+    simulated: result.simulated.map(deserializeMessage),
+  };
 };
 
 export const getQuestions = async (channelIds?: string[]): Promise<DetectedQuestion[]> => {

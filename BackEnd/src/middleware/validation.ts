@@ -44,6 +44,7 @@ export interface MessageCreateBody {
   userName: string;
   userAvatar?: string;
   content: string;
+  simulateConversation?: boolean;
 }
 
 export const parseMessageCreateBody = (req: Request): MessageCreateBody => {
@@ -73,6 +74,8 @@ export const parseMessageCreateBody = (req: Request): MessageCreateBody => {
     throw new ApiError(403, 'Forbidden: user mismatch');
   }
 
+  const simulateConversation = body.simulateConversation === true;
+
   return {
     userId: body.userId.trim(),
     userName: body.userName.trim(),
@@ -80,6 +83,7 @@ export const parseMessageCreateBody = (req: Request): MessageCreateBody => {
       ? body.userAvatar.trim()
       : undefined,
     content: body.content.trim(),
+    simulateConversation,
   };
 };
 
