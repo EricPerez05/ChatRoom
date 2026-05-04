@@ -27,6 +27,12 @@ export interface CreateMessageInput {
   userName: string;
   userAvatar?: string;
   content: string;
+  simulateConversation?: boolean;
+}
+
+export interface PostMessageResult {
+  message: Message;
+  simulated: Message[];
 }
 
 export interface DetectedQuestion {

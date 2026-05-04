@@ -52,9 +52,7 @@ export function Chat() {
   }, [channelId]);
 
   const handleSendMessage = async (targetChannelId: string, payload: CreateMessageInput) => {
-    const created = await postChannelMessage(targetChannelId, payload);
-    await reloadMessages(targetChannelId);
-    return created;
+    return postChannelMessage(targetChannelId, payload);
   };
 
   const handleChannelCreated = (targetServerId: string, createdChannel: Server['channels'][number]) => {
@@ -115,6 +113,7 @@ export function Chat() {
           <MessageArea
             channel={channel}
             messages={channelMessages}
+            members={members}
             isParticipantsVisible={isParticipantsVisible}
             onToggleParticipants={() =>
               setIsParticipantsVisible((current) => !current)

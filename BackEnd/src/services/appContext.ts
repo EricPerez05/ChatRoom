@@ -22,6 +22,9 @@ import { NotificationService } from './notificationService';
 import { QuestionDetectionService } from './questionDetectionService';
 import { QuestionStatusService } from './questionStatusService';
 import { ChannelCatalogService } from './channelCatalogService';
+import { SimulatedResponseService } from './simulatedResponseService';
+import { MemberPresenceService } from './memberPresenceService';
+import { SimulatedConversationService } from './simulatedConversationService';
 import {
   DiscussionStateRepository,
   InMemoryDiscussionStateRepository,
@@ -50,6 +53,7 @@ const buildChannelNameMap = () => {
 };
 
 export const createAppContext = async () => {
+  const activeMembers = members.map((member) => ({ ...member }));
   const channelNameMap = buildChannelNameMap();
   const seededMessages = flattenMessages();
   let messageRepository: MessageRepository;
@@ -72,6 +76,13 @@ export const createAppContext = async () => {
 
   const questionDetectionService = new QuestionDetectionService();
   const notificationService = new NotificationService(notificationRepository);
+  const memberPresenceService = new MemberPresenceService(activeMembers);
+  memberPresenceService.startAutoUpdates();
+  const simulatedResponseService = new SimulatedResponseService(
+    activeMembers,
+    questionDetectionService,
+    memberPresenceService,
+  );
   const questionStatusService = new QuestionStatusService(
     messageRepository,
     questionStatusRepository,
@@ -84,12 +95,17 @@ export const createAppContext = async () => {
 
   const discussionService = new DiscussionService(discussionStateRepository);
   const channelCatalogService = new ChannelCatalogService(servers, groups, channelNameMap);
+  const simulatedConversationService = new SimulatedConversationService(
+    messageRepository,
+    simulatedResponseService,
+  );
+  simulatedConversationService.startAutoReplies();
 
   return {
     staticData: {
       servers,
       groups,
-      members,
+      members: activeMembers,
     },
     channelNameMap,
     services: {
@@ -98,6 +114,9 @@ export const createAppContext = async () => {
       notificationService,
       discussionService,
       channelCatalogService,
+      simulatedResponseService,
+      memberPresenceService,
+      simulatedConversationService,
     },
     repositories: {
       messageRepository,

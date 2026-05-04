@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router';
-import { Hash, Plus, Bell, BellOff } from 'lucide-react';
+import { Hash, Plus } from 'lucide-react';
 import { Channel, Server } from '../types/chat';
 import { useEffect, useState } from 'react';
 import { UnansweredQuestions } from './UnansweredQuestions';
@@ -16,7 +16,6 @@ export function ChannelList({ server, onChannelCreated }: ChannelListProps) {
 
   const [activeTab, setActiveTab] = useState<'channels' | 'questions' | 'discussions'>('channels');
   const [localChannels, setLocalChannels] = useState<Channel[]>(server.channels);
-  const [mutedChannels, setMutedChannels] = useState<Set<string>>(new Set());
   const [serverDisplayName, setServerDisplayName] = useState(server.name);
   const [addingChannelCategory, setAddingChannelCategory] = useState<string | null>(null);
   const [newChannelName, setNewChannelName] = useState('');
@@ -63,18 +62,6 @@ export function ChannelList({ server, onChannelCreated }: ChannelListProps) {
       window.removeEventListener('focus', handleWindowFocus);
     };
   }, [channelIds.join('|')]);
-
-  const toggleChannelMute = (channelIdToToggle: string) => {
-    setMutedChannels((current) => {
-      const updated = new Set(current);
-      if (updated.has(channelIdToToggle)) {
-        updated.delete(channelIdToToggle);
-      } else {
-        updated.add(channelIdToToggle);
-      }
-      return updated;
-    });
-  };
 
   const handleCreateChannel = async (category: string) => {
     if (!newChannelName.trim()) {
@@ -236,25 +223,7 @@ export function ChannelList({ server, onChannelCreated }: ChannelListProps) {
                           {channel.name}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleChannelMute(channel.id);
-                          }}
-                          className={`p-1 rounded transition-colors ${
-                            mutedChannels.has(channel.id)
-                              ? 'hover:bg-[#ffebee]'
-                              : 'hover:bg-white'
-                          }`}
-                        >
-                          {mutedChannels.has(channel.id) ? (
-                            <BellOff className="w-3.5 h-3.5 text-[#d32f2f]" />
-                          ) : (
-                            <Bell className="w-3.5 h-3.5 text-[#616161]" />
-                          )}
-                        </button>
-                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100" />
                     </div>
                   </Link>
                 ))}
