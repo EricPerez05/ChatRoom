@@ -36,6 +36,7 @@ export function MessageArea({
   isParticipantsVisible,
   onToggleParticipants,
   onSendMessage,
+  isMessagesLoading = false,
 }: MessageAreaProps) {
   const [newMessage, setNewMessage] = useState('');
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>(messages);
