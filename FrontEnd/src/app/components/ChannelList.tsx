@@ -193,10 +193,15 @@ export function ChannelList({ server, onChannelCreated }: ChannelListProps) {
                 </button>
               </div>
               <div className="space-y-0.5">
-                {channels.map((channel) => (
+                {channels.map((channel) => {
+                  const channelHref = groupId
+                    ? `/group/${groupId}/channel/${channel.id}`
+                    : `/server/${serverId ?? server.id}/channel/${channel.id}`;
+
+                  return (
                   <Link
                     key={channel.id}
-                    to={`/server/${server.id}/channel/${channel.id}`}
+                    to={channelHref}
                   >
                     <div
                       className={`mx-2 px-3 py-2.5 rounded flex items-center justify-between cursor-pointer group ${
@@ -226,7 +231,8 @@ export function ChannelList({ server, onChannelCreated }: ChannelListProps) {
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100" />
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
               {category.toLowerCase().includes('text') && (
                 <div className="px-5 pt-2">
