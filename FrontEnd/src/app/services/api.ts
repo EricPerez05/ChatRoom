@@ -16,8 +16,8 @@ const API_BASE_URL = (
     || ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV ? 'http://localhost:4000' : ''))
 );
 
-const fetchJson = async <T>(path: string): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${path}`, init);
   if (!response.ok) {
     throw new Error(`Request failed (${response.status}) for ${path}`);
   }
@@ -94,9 +94,10 @@ export const createGroupChannel = async (
   });
 };
 
-export const getChannelMessages = async (channelId: string): Promise<Message[]> => {
+export const getChannelMessages = async (channelId: string, init?: RequestInit): Promise<Message[]> => {
   const messages = await fetchJson<Array<Omit<Message, 'timestamp'> & { timestamp: string | Date }>>(
     `/api/channels/${channelId}/messages`,
+    init,
   );
   return messages.map(deserializeMessage);
 };

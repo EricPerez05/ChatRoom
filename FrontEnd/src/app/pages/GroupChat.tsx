@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams, Navigate } from 'react-router';
 import { ServerSidebar } from '../components/ServerSidebar';
 import { ChannelList } from '../components/ChannelList';
@@ -14,11 +14,7 @@ export function GroupChat() {
   const [members, setMembers] = useState<Member[]>([]);
   const [channelMessages, setChannelMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const reloadMessages = async (targetChannelId: string) => {
-    const loadedMessages = await getChannelMessages(targetChannelId);
-    setChannelMessages(loadedMessages);
-  };
+  const messageRequestId = useRef(0);
 
   useEffect(() => {
     const loadData = async () => {
@@ -38,17 +34,45 @@ export function GroupChat() {
     void loadData();
   }, []);
 
-  useEffect(() => {
-    const loadMessages = async () => {
-      if (!channelId) {
-        setChannelMessages([]);
-        return;
-      }
+  useLayoutEffect(() => {
+    if (!channelId) {
+      setChannelMessages([]);
+      return;
+    }
+    setChannelMessages([]);
+  }, [channelId]);
 
-      await reloadMessages(channelId);
+  useEffect(() => {
+    if (!channelId) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const requestId = ++messageRequestId.current;
+
+    const loadMessages = async () => {
+      try {
+        const loadedMessages = await getChannelMessages(channelId, { signal: controller.signal });
+        if (messageRequestId.current !== requestId) {
+          return;
+        }
+        setChannelMessages(loadedMessages);
+      } catch (error) {
+        const isAbort =
+          (error instanceof DOMException && error.name === 'AbortError')
+          || (error instanceof Error && error.name === 'AbortError');
+        if (isAbort) {
+          return;
+        }
+        if (messageRequestId.current !== requestId) {
+          return;
+        }
+        setChannelMessages([]);
+      }
     };
 
     void loadMessages();
+    return () => controller.abort();
   }, [channelId]);
 
   const handleSendMessage = async (targetChannelId: string, payload: CreateMessageInput) => {
